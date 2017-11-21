@@ -244,25 +244,23 @@ def project(
 
 
 def project2(
-        objx, objy, theta, center=None, emission=True, pad=True,
+        objx, objy, objz, theta, axis=2, center=None, emission=True,
         sinogram_order=False, ncore=None, nchunk=None):
     """
     Project x-rays through a given 3D object.
 
     Parameters
     ----------
-    objx, objy : ndarray
-        (x, y) components of vector of a voxelized 3D object.
+    objx, objy, objz : ndarray
+        (x, y, z) components of vector of a voxelized 3D object.
     theta : array
         Projection angles in radian.
+    axis : scalar
+        Rotation axis for tilting the object.
     center: array, optional
         Location of rotation axis.
     emission : bool, optional
         Determines whether output data is emission or transmission type.
-    pad : bool, optional
-        Determines if the projection image width will be padded or not. If True,
-        then the diagonal length of the object cross-section will be used for the
-        output size of the projection image width.
     sinogram_order: bool, optional
         Determines whether output data is a stack of sinograms (True, y-axis first axis)
         or a stack of radiographs (False, theta first axis).
@@ -278,22 +276,40 @@ def project2(
     """
     objx = dtype.as_float32(objx)
     objy = dtype.as_float32(objy)
+    objz = dtype.as_float32(objz)
     theta = dtype.as_float32(theta)
 
     # Estimate data dimensions.
     oy, ox, oz = objx.shape
     dt = theta.size
-    dy = oy
-    if pad is True:
-        dx = _round_to_even(np.sqrt(ox * ox + oz * oz) + 2)
-    elif pad is False:
+
+    if axis == 0:
+        dy = oy
         dx = ox
+    elif axis == 1:
+        dy = ox
+        dx = oz
+    elif axis == 2:
+        dy = oz
+        dx = ox
+
     shape = dy, dt, dx
     tomo = dtype.empty_shared_array(shape)
     tomo[:] = 0.0
     center = get_center(shape, center)
 
-    extern.c_project2(objx, objy, center, tomo, theta)
+    if axis == 0:
+        extern.c_project2(objx, objy, center, tomo, theta)
+    elif axis == 1:
+        objy = np.swapaxes(objy, 0, 1).copy()
+        objz = np.swapaxes(objz, 0, 1).copy()
+        extern.c_project2(objz, objy, center, tomo, theta)
+    elif axis == 2:
+        objx = np.swapaxes(objx, 0, 1).copy()
+        objz = np.swapaxes(objz, 0, 1).copy()
+        objx = np.swapaxes(objx, 0, 2).copy()
+        objz = np.swapaxes(objz, 0, 2).copy()
+        extern.c_project2(objz, objx, center, tomo, theta)
 
     # NOTE: returns sinogram order with emmission=True
     if not emission:

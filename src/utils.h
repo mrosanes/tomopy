@@ -237,6 +237,27 @@ sirt(
     int ngridy,
     int num_iter);
 
+void DLL
+vector(
+    const float *data1,
+    int dy1, 
+    int dt1,
+    int dx1,
+    const float *data2,
+    int dy2, 
+    int dt2,
+    int dx2,
+    const float *center1,
+    const float *center2,
+    const float *theta1,
+    const float *theta2,
+    float *recon1,
+    float *recon2,
+    float *recon3,
+    int ngridx,
+    int ngridy,
+    int num_iter);
+
 // Utility functions for data simultation
 
 void DLL

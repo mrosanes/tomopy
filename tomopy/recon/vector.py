@@ -46,28 +46,39 @@
 # POSSIBILITY OF SUCH DAMAGE.                                             #
 # #########################################################################
 
+"""
+Module for vector reconstruction algorithms.
+"""
+
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
-__version__ = '1.1.2'
 
-from ._fft_loader import fft_impl
-
+import numpy as np
+import tomopy.util.extern as extern
+import tomopy.util.dtype as dtype
+from tomopy.sim.project import get_center
 import logging
-logging.getLogger(__name__).addHandler(logging.NullHandler())
 
-from tomopy.misc.corr import *
-from tomopy.misc.morph import *
-from tomopy.misc.phantom import *
-from tomopy.prep.alignment import *
-from tomopy.prep.normalize import *
-from tomopy.prep.phase import *
-from tomopy.prep.stripe import *
-from tomopy.recon.wrappers import *
-from tomopy.recon.algorithm import *
-from tomopy.recon.rotation import *
-from tomopy.recon.vector import *
-from tomopy.recon.acceleration import *
-from tomopy.sim.project import *
-from tomopy.sim.propagate import *
-from tomopy.util.mproc import set_debug
+logger = logging.getLogger(__name__)
+
+
+def vector(tomo1, tomo2, theta1, theta2, center1=None, center2=None):
+    tomo1 = dtype.as_float32(tomo1)
+    tomo2 = dtype.as_float32(tomo2)
+    theta1 = dtype.as_float32(theta1)
+    theta2 = dtype.as_float32(theta2)
+    # recon_shape = (tomo1.shape[1], tomo1.shape[2], tomo1.shape[2])
+    recon_shape = (280, 44, 408)
+    recon1 = np.zeros(recon_shape, dtype=np.float32)
+    recon2 = np.zeros(recon_shape, dtype=np.float32)
+    recon3 = np.zeros(recon_shape, dtype=np.float32)
+    center_arr1 = get_center(tomo1.shape, center1)
+    center_arr2 = get_center(tomo2.shape, center2)
+    extern.c_vector(tomo1, tomo2,
+        center_arr1, center_arr2, recon1, recon2, recon3, theta1, theta2, 
+        num_gridx=tomo1.shape[2], num_gridy=tomo1.shape[2], num_iter=1)
+    return recon1, recon2, recon3
+
+
+

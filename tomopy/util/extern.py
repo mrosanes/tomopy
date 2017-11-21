@@ -83,6 +83,7 @@ __all__ = ['c_shared_lib',
            'c_pml_hybrid',
            'c_pml_quad',
            'c_sirt',
+           'c_vector',
            'c_remove_ring']
 
 
@@ -471,6 +472,43 @@ def c_sirt(tomo, center, recon, theta, **kwargs):
             dtype.as_c_float_p(center),
             dtype.as_c_float_p(theta),
             dtype.as_c_float_p(recon),
+            dtype.as_c_int(kwargs['num_gridx']),
+            dtype.as_c_int(kwargs['num_gridy']),
+            dtype.as_c_int(kwargs['num_iter']))
+
+
+def c_vector(tomo1, tomo2, center1, center2, recon1, recon2, recon3, theta1, theta2, **kwargs):
+    if len(tomo1.shape) == 2:
+        # no y-axis (only one slice)
+        dy1 = 1
+        dt1, dx1 = tomo1.shape
+    else:
+        dy1, dt1, dx1 = tomo1.shape
+
+    if len(tomo2.shape) == 2:
+        # no y-axis (only one slice)
+        dy2 = 1
+        dt2, dx2 = tomo2.shape
+    else:
+        dy2, dt2, dx2 = tomo2.shape
+
+    LIB_TOMOPY.vector.restype = dtype.as_c_void_p()
+    return LIB_TOMOPY.vector(
+            dtype.as_c_float_p(tomo1),
+            dtype.as_c_int(dy1),
+            dtype.as_c_int(dt1),
+            dtype.as_c_int(dx1),
+            dtype.as_c_float_p(tomo2),
+            dtype.as_c_int(dy2),
+            dtype.as_c_int(dt2),
+            dtype.as_c_int(dx2),
+            dtype.as_c_float_p(center1),
+            dtype.as_c_float_p(center2),
+            dtype.as_c_float_p(theta1),
+            dtype.as_c_float_p(theta2),
+            dtype.as_c_float_p(recon1),
+            dtype.as_c_float_p(recon2),
+            dtype.as_c_float_p(recon3),
             dtype.as_c_int(kwargs['num_gridx']),
             dtype.as_c_int(kwargs['num_gridy']),
             dtype.as_c_int(kwargs['num_iter']))

@@ -45,11 +45,17 @@
 
 
 void 
-sirt(
-    const float *data, int dy, int dt, int dx,
-    const float *center, const float *theta,
-    float *recon, int ngridx, int ngridy, int num_iter)
+vector(
+    const float *data1, int dy1, int dt1, int dx1,
+    const float *data2, int dy2, int dt2, int dx2,
+    const float *center1, const float *center2,
+    const float *theta1, const float *theta2,
+    float *recon1, float *recon2, float *recon3, 
+    int ngridx, int ngridy, int num_iter)
 {
+    printf ("Hey!\n");
+    printf ("dx=%d\n", dx1);
+
     float *gridx = (float *)malloc((ngridx+1)*sizeof(float));
     float *gridy = (float *)malloc((ngridy+1)*sizeof(float));
     float *coordx = (float *)malloc((ngridy+1)*sizeof(float));
@@ -70,6 +76,7 @@ sirt(
     int s, p, d, i, n;
     int quadrant;
     float theta_p, sin_p, cos_p;
+    float srcx, srcy, detx, dety, dv, vx, vy;
     float mov, xi, yi;
     int asize, bsize, csize;
     float *simdata;
@@ -81,34 +88,44 @@ sirt(
 
     for (i=0; i<num_iter; i++) 
     {
-        simdata = (float *)calloc((dt*dy*dx), sizeof(float));
+        simdata = (float *)calloc((dt1*dy1*dx1), sizeof(float));
 
         // For each slice
-        for (s=0; s<dy; s++)
+        for (s=0; s<dy1; s++)
         {
-            preprocessing(ngridx, ngridy, dx, center[s], 
+            preprocessing(ngridx, ngridy, dx1, center1[s], 
                 &mov, gridx, gridy); // Outputs: mov, gridx, gridy
 
             sum_dist = (float *)calloc((ngridx*ngridy), sizeof(float));
             update = (float *)calloc((ngridx*ngridy), sizeof(float));
             
             // For each projection angle 
-            for (p=0; p<dt; p++) 
+            for (p=0; p<dt1; p++) 
             {
                 // Calculate the sin and cos values 
                 // of the projection angle and find
                 // at which quadrant on the cartesian grid.
-                theta_p = fmod(theta[p], 2*M_PI);
+                theta_p = fmod(theta1[p], 2*M_PI);
                 quadrant = calc_quadrant(theta_p);
                 sin_p = sinf(theta_p);
                 cos_p = cosf(theta_p);
 
                 // For each detector pixel 
-                for (d=0; d<dx; d++) 
+                for (d=0; d<dx1; d++) 
                 {
                     // Calculate coordinates
                     xi = -ngridx-ngridy;
-                    yi = (1-dx)/2.0+d+mov;
+                    yi = (1-dx1)/2.0+d+mov;
+
+                    srcx = xi*cos_p-yi*sin_p;
+                    srcy = xi*sin_p+yi*cos_p;
+                    detx = -xi*cos_p-yi*sin_p;
+                    dety = -xi*sin_p+yi*cos_p;
+
+                    dv = sqrt(pow(srcx-detx, 2)+pow(srcy-dety, 2));
+                    vx = (srcx-detx)/dv;
+                    vy = (srcy-dety)/dv;
+
                     calc_coords(
                         ngridx, ngridy, xi, yi, sin_p, cos_p, gridx, gridy, 
                         coordx, coordy);
@@ -134,10 +151,14 @@ sirt(
                         indi, dist);
 
                     // Calculate simdata 
-                    calc_simdata(s, p, d, ngridx, ngridy, dt, dx,
-                        csize, indi, dist, recon,
-                        simdata); // Output: simdata
+                    calc_simdata2(s, p, d, ngridx, ngridy, dt1, dx1,
+                        csize, indi, dist, vx, vy, recon1, recon2,
+                        simdata); // Output: simulated data
 
+                    // // Calculate simdata 
+                    // calc_simdata(s, p, d, ngridx, ngridy, dt1, dx1,
+                    //     csize, indi, dist, recon1,
+                    //     simdata); // Output: simdata
 
                     // Calculate dist*dist
                     sum_dist2 = 0.0;
@@ -150,8 +171,8 @@ sirt(
                     // Update
                     if (sum_dist2 != 0.0) 
                     {
-                        ind_data = d+p*dx+s*dt*dx;
-                        upd = (data[ind_data]-simdata[ind_data])/sum_dist2;
+                        ind_data = d+p*dx1+s*dt1*dx1;
+                        upd = (data1[ind_data]-simdata[ind_data])/sum_dist2;
                         for (n=0; n<csize-1; n++) 
                         {
                             update[indi[n]] += upd*dist[n];
@@ -163,7 +184,8 @@ sirt(
             for (n = 0; n < ngridx*ngridy; n++) {
                 if (sum_dist[n] != 0.0) {
                     ind_recon = s*ngridx*ngridy;
-                    recon[n+ind_recon] += update[n]/sum_dist[n];
+                    recon1[n+ind_recon] += update[n]/sum_dist[n];
+                    recon2[n+ind_recon] += update[n]/sum_dist[n];
                 }
             }
 
@@ -172,6 +194,116 @@ sirt(
         }
 
         free(simdata);
+
+
+
+        simdata = (float *)calloc((dt2*dy2*dx2), sizeof(float));
+
+        // For each slice
+        for (s=0; s<dy2; s++)
+        {
+            preprocessing(ngridx, ngridy, dx2, center1[s], 
+                &mov, gridx, gridy); // Outputs: mov, gridx, gridy
+
+            sum_dist = (float *)calloc((ngridx*ngridy), sizeof(float));
+            update = (float *)calloc((ngridx*ngridy), sizeof(float));
+            
+            // For each projection angle 
+            for (p=0; p<dt2; p++) 
+            {
+                // Calculate the sin and cos values 
+                // of the projection angle and find
+                // at which quadrant on the cartesian grid.
+                theta_p = fmod(theta2[p], 2*M_PI);
+                quadrant = calc_quadrant(theta_p);
+                sin_p = sinf(theta_p);
+                cos_p = cosf(theta_p);
+
+                // For each detector pixel 
+                for (d=0; d<dx2; d++) 
+                {
+                    // Calculate coordinates
+                    xi = -ngridx-ngridy;
+                    yi = (1-dx2)/2.0+d+mov;
+
+                    srcx = xi*cos_p-yi*sin_p;
+                    srcy = xi*sin_p+yi*cos_p;
+                    detx = -xi*cos_p-yi*sin_p;
+                    dety = -xi*sin_p+yi*cos_p;
+
+                    dv = sqrt(pow(srcx-detx, 2)+pow(srcy-dety, 2));
+                    vx = (srcx-detx)/dv;
+                    vy = (srcy-dety)/dv;
+
+                    calc_coords(
+                        ngridx, ngridy, xi, yi, sin_p, cos_p, gridx, gridy, 
+                        coordx, coordy);
+
+                    // Merge the (coordx, gridy) and (gridx, coordy)
+                    trim_coords(
+                        ngridx, ngridy, coordx, coordy, gridx, gridy, 
+                        &asize, ax, ay, &bsize, bx, by);
+
+                    // Sort the array of intersection points (ax, ay) and
+                    // (bx, by). The new sorted intersection points are 
+                    // stored in (coorx, coory). Total number of points 
+                    // are csize.
+                    sort_intersections(
+                        quadrant, asize, ax, ay, bsize, bx, by, 
+                        &csize, coorx, coory);
+
+                    // Calculate the distances (dist) between the 
+                    // intersection points (coorx, coory). Find the 
+                    // indices of the pixels on the reconstruction grid.
+                    calc_dist(
+                        ngridx, ngridy, csize, coorx, coory, 
+                        indi, dist);
+
+                    // Calculate simdata 
+                    calc_simdata2(s, p, d, ngridx, ngridy, dt2, dx2,
+                        csize, indi, dist, vx, vy, recon1, recon3,
+                        simdata); // Output: simulated data
+
+                    // // Calculate simdata 
+                    // calc_simdata(s, p, d, ngridx, ngridy, dt1, dx1,
+                    //     csize, indi, dist, recon1,
+                    //     simdata); // Output: simdata
+
+                    // Calculate dist*dist
+                    sum_dist2 = 0.0;
+                    for (n=0; n<csize-1; n++) 
+                    {
+                        sum_dist2 += dist[n]*dist[n];
+                        sum_dist[indi[n]] += dist[n];
+                    }
+
+                    // Update
+                    if (sum_dist2 != 0.0) 
+                    {
+                        ind_data = d+p*dx2+s*dt2*dx2;
+                        upd = (data2[ind_data]-simdata[ind_data])/sum_dist2;
+                        for (n=0; n<csize-1; n++) 
+                        {
+                            update[indi[n]] += upd*dist[n];
+                        }
+                    }
+                }
+            }
+
+            for (n = 0; n < ngridx*ngridy; n++) {
+                if (sum_dist[n] != 0.0) {
+                    ind_recon = s*ngridx*ngridy;
+                    recon1[n+ind_recon] += update[n]/sum_dist[n];
+                    recon3[n+ind_recon] += update[n]/sum_dist[n];
+                }
+            }
+
+            free(sum_dist);
+            free(update);
+        }
+
+        free(simdata);
+
     }
 
     free(gridx);
