@@ -120,6 +120,8 @@ def recon(
             Penalized maximum likelihood algorithm with quadratic penalty.
         'sirt'
             Simultaneous algebraic reconstruction technique.
+        'vector'
+            Vector field reconstruction, such as the magnetization vector (using sirt as its base).
 
     num_gridx, num_gridy : int, optional
         Number of pixels along x- and y-axes in the reconstruction grid.
@@ -234,6 +236,7 @@ def recon(
         'pml_hybrid': ['num_gridx', 'num_gridy', 'num_iter', 'reg_par'],
         'pml_quad': ['num_gridx', 'num_gridy', 'num_iter', 'reg_par'],
         'sirt': ['num_gridx', 'num_gridy', 'num_iter'],
+        'vector': ['num_gridx', 'num_gridy', 'num_iter'],
     }
 
     generic_kwargs = ['num_gridx', 'num_gridy', 'options']
@@ -342,6 +345,8 @@ def _get_func(algorithm):
         func = extern.c_pml_quad
     elif algorithm == 'sirt':
         func = extern.c_sirt
+    elif algorithm == 'vector':
+        func = extern.c_vector
     else:
         func = algorithm
     return func
